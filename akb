@@ -1,0 +1,359 @@
+#!/usr/bin/env bash
+if [ -f /.dockerenv ]; then
+    echo "Welcome to AKB!"
+else
+    echo "Please run inside a ubuntu bionic docker container!";
+    exit
+fi
+##############################################
+### SET UP DEPENDENCIES
+##############################################
+function check_install() {
+  INSTALL_LIST=""
+  for A in $@
+  do
+    if [ $(dpkg-query -W -f='${Status}' $A 2>/dev/null | grep -c "ok installed") == 1 ]; then
+      echo "$A INSTALLED"
+    else
+      echo "$A NOT INSTALLED"
+      INSTALL_LIST="$INSTALL_LIST $A"
+    fi
+  done
+  if [ "$INSTALL_LIST" == "" ]; then
+    echo "NOTHING TO INSTALL"
+  else
+    echo "Install:$INSTALL_LIST"
+    apt update
+    apt install -y$INSTALL_LIST
+  fi
+}
+
+function check_repo() {
+  if [ ! -f "/usr/bin/repo" ]; then
+    check_install "curl"
+    curl https://storage.googleapis.com/git-repo-downloads/repo > /usr/bin/repo
+    chmod a+x /usr/bin/repo
+  fi
+}
+
+check_install "git ccache make gcc zip bc python"
+
+# Avoid git nosense
+git config --global user.name "example"
+git config --global user.email example@example.com
+
+##############################################
+### RETRIEVE WORKDIR
+##############################################
+WORKDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+echo "WORKDIR: $WORKDIR"
+cd $WORKDIR
+
+##############################################
+### VARIABLES
+##############################################
+KERNEL_REPO=""
+KERNEL_BRANCHES="master"
+KERNEL_CONF=""
+KERNEL_NAME=""
+KERNEL_ARCH="arm64"
+
+ZIP_SCRIPT="dummy"
+
+# Toolchain config
+GCC_PROVIDER="GOOGLE"   # LOS GOOGLE
+CLANG_PROVIDER="GOOGLE" # BENZO-BUILD PROTON-BUILD PROTON-PREBUILT LOLZ GOOGLE
+
+GCC_ARM32_DIR="$WORKDIR/tools/gcc/arm32/bin"
+GCC_ARM64_DIR="$WORKDIR/tools/gcc/arm64/bin"
+CLANG_DIR="$WORKDIR/tools/clang/bin"
+
+REPO_GCC_ARM64=""
+REPO_GCC_ARM32=""
+
+MAKE_ADDITIONAL=""
+NEEDS_PACKAGES=""
+
+# Load from file
+if [ -f "kernel_templates/$1.config" ]; then
+  echo "Loading env: $1"
+  CONFIG_FILE=$1
+  . kernel_templates/$1.config
+else
+  echo "$1 not found in kernel_templates"
+  exit
+fi
+
+if [ "$NEEDS_PACKAGES" != "" ]; then
+  check_install "$NEEDS_PACKAGES"
+fi 
+
+# Do not touch this variables if not needed
+KERNEL_DIR="$WORKDIR/kernel_$CONFIG_FILE"
+CCACHE_DIR="$WORKDIR/_ccache"
+BASE_OUT_DIR="$WORKDIR/_out_$CONFIG_FILE"
+DIST_DIR="$WORKDIR/dist"
+
+## Variables end
+for VAR in KERNEL_REPO KERNEL_BRANCHES KERNEL_CONF KERNEL_NAME KERNEL_ARCH GCC_PROVIDER CLANG_PROVIDER KERNEL_DIR BASE_OUT_DIR DIST_DIR
+do
+   echo "$VAR > ""${!VAR}"
+   TST="${!VAR}"
+   if [ "$TST" == "" ]; then
+     echo "Required variable $VAR is not set, aborting"
+     exit
+   fi
+done
+
+# Create dist dir
+mkdir -p $DIST_DIR
+
+##############################################
+### ENV-TOOLS CONFIGURATION
+##############################################
+# Kernel
+if [ ! -d "$KERNEL_DIR" ]; then
+  echo "Kernel not found cloning it..."
+  BCOUNT="$(echo $KERNEL_BRANCHES | wc -w)"
+  EX=""
+  if [ "$BCOUNT" == "1" ]; then
+    EX="--depth 1"
+    echo "Detected only one branch, let's shallow clone!"
+  fi
+  echo 
+  git clone $EX $KERNEL_REPO $KERNEL_DIR
+  if [ -f "$KERNEL_DIR/.gitmodules" ]; then
+    echo "Git submodules detected, cloning..."
+    cd $KERNEL_DIR && git submodule update --init --recursive
+  fi
+fi
+
+# GCC
+case $GCC_PROVIDER in
+  GOOGLE)
+    REPO_GCC_ARM32="https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9"
+    REPO_GCC_ARM64="https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9"
+    GCC_ARM32_DIR="$WORKDIR/tools/gcc/google-arm32/bin"
+    CLONE_GCC_ARM32_DIR="$WORKDIR/tools/gcc/google-arm32"
+    GCC_ARM64_DIR="$WORKDIR/tools/gcc/google-arm64/bin"
+    CLONE_GCC_ARM64_DIR="$WORKDIR/tools/gcc/google-arm64"
+    ;;
+  LOS)
+    REPO_GCC_ARM32="https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9.git"
+    REPO_GCC_ARM64="https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9.git"
+    GCC_ARM32_DIR="$WORKDIR/tools/gcc/los-arm32/bin"
+    CLONE_GCC_ARM32_DIR="$WORKDIR/tools/gcc/los-arm32"
+    GCC_ARM64_DIR="$WORKDIR/tools/gcc/los-arm64/bin"
+    CLONE_GCC_ARM64_DIR="$WORKDIR/tools/gcc/los-arm64"
+    ;;
+esac
+
+if [ ! -d "${CLONE_GCC_ARM32_DIR:-$GCC_ARM32_DIR}" ]; then
+  if [ -z "$REPO_GCC_ARM32" ];
+  then
+      echo "GCC32 not found in $GCC_ARM32_DIR and no REPO_GCC_ARM32 defined, aborting!"
+      exit
+  else
+      echo "GCC32 not found cloning it..."
+      git clone --depth 1 $REPO_GCC_ARM32 ${CLONE_GCC_ARM32_DIR:-$GCC_ARM32_DIR}
+  fi
+fi
+
+if [ ! -d "${CLONE_GCC_ARM64_DIR:-$GCC_ARM64_DIR}" ]; then
+  if [ -z "$REPO_GCC_ARM64" ];
+  then
+      echo "GCC64 not found in $GCC_ARM64_DIR and no REPO_GCC_ARM64 defined, aborting!"
+      exit
+  else
+      echo "GCC64 not found cloning it..."
+      git clone --depth 1 $REPO_GCC_ARM64 ${CLONE_GCC_ARM64_DIR:-$GCC_ARM64_DIR}
+  fi
+fi
+
+# CLANG
+case $CLANG_PROVIDER in
+  PROTON-BUILD)
+    CLANG_DIR="$WORKDIR/tools/clang/proton-build/install/bin"
+    if [ ! -d "$WORKDIR/tools/clang/proton-build" ]; then
+      git clone --depth 1 https://github.com/kdrag0n/proton-clang-build.git "$WORKDIR/tools/clang/proton-build"
+    fi
+    if [ ! -d "$CLANG_DIR" ]; then
+      echo "Installing deps to build proton..."
+      check_install "bc bison ca-certificates ccache clang cmake curl file flex gcc g++ git libelf-dev libssl-dev make ninja-build python3 texinfo u-boot-tools zlib1g-dev lld"
+      $WORKDIR/tools/clang/proton-build/build-llvm.py
+    fi
+    ;;
+  BENZO-BUILD)
+    CLANG_DIR="$WORKDIR/tools/clang/benzo-build/out/install/linux-x86/clang-benzo/bin"
+    if [ ! -d "$WORKDIR/tools/clang/benzo-build" ]; then
+      check_repo
+      check_install "bc bison ca-certificates ccache clang cmake curl file flex gcc g++ git libelf-dev libssl-dev make ninja-build python3 texinfo u-boot-tools zlib1g-dev lld"
+      mkdir -p "$WORKDIR/tools/clang/benzo-build"
+      cd "$WORKDIR/tools/clang/benzo-build"
+      repo init -u https://github.com/benzoClang/manifest -b master
+      repo sync -j$(nproc --all) -f
+    fi
+    if [ ! -d "$CLANG_DIR" ]; then
+      cd "$WORKDIR/tools/clang/benzo-build"
+      toolchain/llvm_benzo/build.py --no-lto
+      # toolchain/llvm_benzo/build.py (ThinLTO builds take a lot longer)
+    fi
+    ;;  
+  PROTON-PREBUILT)
+    CLANG_DIR="$WORKDIR/tools/clang/proton-prebuilt/bin"
+    if [ ! -d "$CLANG_DIR" ]; then
+      echo "Proton prebuilt needs configuration"
+      check_install "wget tar zstd"
+      CLANG_ARCHIVE="$WORKDIR/tools/clang/proton-prebuilt/proton_clang-latest.tar.zst"
+      if [ ! -f "$CLANG_ARCHIVE" ]; then
+        mkdir -p "$WORKDIR/tools/clang/proton-prebuilt"
+        wget https://kdrag0n.dev/files/redirector/proton_clang-latest.tar.zst -O "$CLANG_ARCHIVE"
+      fi
+      if [ ! -d "$CLANG_DIR" ]; then
+        FIRST_DIR=$(ls -d $WORKDIR/tools/clang/proton-prebuilt/*/ 2>/dev/null)
+        if [ -z "$FIRST_DIR" ]; then
+          echo "NO FIRST DIR, EXTRACT!"
+          tar -C "$WORKDIR/tools/clang/proton-prebuilt" -I zstd -xvf $CLANG_ARCHIVE
+          CLANG_DIR=$(ls -d $WORKDIR/tools/clang/proton-prebuilt/*/ 2>/dev/null)
+          CLANG_DIR="$CLANG_DIR""bin"
+        else 
+          CLANG_DIR="$FIRST_DIR""bin"  
+        fi
+      fi
+    fi
+    ;;  
+  LOLZ)
+    REPO_CLANG="https://github.com/Jprimero15/lolz_clang.git"
+    CLANG_DIR="$WORKDIR/tools/clang/lolz/bin"
+    ;;
+  GOOGLE)
+    REPO_CLANG="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86"
+    CLONE_CLANG_DIR="$WORKDIR/tools/clang/google"
+    GOOGLE_CLANG_VERSION=""
+    if [ -z "$GOOGLE_CLANG_VERSION" ]; then
+      echo "GOOGLE GLAN VERSION NOT SET, DEFAULTING r377782d"
+      GOOGLE_CLANG_VERSION="r377782d"
+    fi
+    CLANG_DIR="$WORKDIR/tools/clang/google/clang-$GOOGLE_CLANG_VERSION/bin"
+    ;;  
+esac
+
+if [ ! -d "${CLONE_CLANG_DIR:-$CLANG_DIR}" ]; then
+  if [ -z "$REPO_CLANG" ];
+  then
+      echo "CLANG not found in $CLANG_DIR and no REPO_CLANG defined, aborting!"
+      exit
+  else
+      echo "CLANG not found cloning it..."
+      git clone --depth 1 $REPO_CLANG ${CLONE_CLANG_DIR:-$CLANG_DIR}
+  fi
+fi
+
+echo "GCC_ARM32_DIR: $GCC_ARM32_DIR"
+echo "GCC_ARM64_DIR: $GCC_ARM64_DIR"
+echo "CLANG_DIR: $CLANG_DIR"
+
+# CCACHE
+echo "SETTING CCACHE"
+ccache -M 10G
+ccache --set-config=cache_dir=$CCACHE_DIR
+
+# PATH
+PATH_GCC=$GCC_ARM32_DIR:$GCC_ARM64_DIR
+PATH_CLANG=$CLANG_DIR
+PATH="$WORKDIR/tools/bin:$PATH_GCC:$PATH_CLANG:${PATH}"
+
+echo "SETTING PATH: $PATH"
+
+DATE=""
+
+function update_date(){
+    DATE=$(date +'%Y-%m-%d_%H-%M-%S')
+    echo "Date is now: $DATE"
+}
+
+function switch_branch(){
+    cd $KERNEL_DIR
+    #git checkout .
+    #if [ $? -ne 0 ]; then
+    #  echo "<<<< FAILED CHECKOUT ."
+    #  exit
+    #  fi
+    # git fetch origin "$1"
+    # if [ $? -ne 0 ]; then
+    #  echo "<<<< FAILED FETCH"
+    #  exit
+    #fi
+    # git reset --hard "origin/$1"
+    # if [ $? -ne 0 ]; then
+    #  echo "<<<< FAILED RESET"
+    #  exit
+    # fi
+    # git fetch --unshallow
+    #if [ $? -ne 0 ]; then
+    # echo "<<<< FAILED FETCH"
+    # exit
+    #fi
+    git fetch --all
+    git checkout "$1"
+    if [ $? -ne 0 ]; then
+      echo "<<<< FAILED CHECKOUT $1"
+      exit
+    fi
+    git pull
+    if [ $? -ne 0 ]; then
+      echo "<<<< FAILED PULL"
+      exit
+    fi
+    cd ..
+    update_date
+}
+
+function build_kernel(){
+  if [ "$OVERWRITE_CONFIG_LOCALVERSION" != "" ]; then
+    echo ">>>> OVERWRITE_CONFIG_LOCALVERSION: $OVERWRITE_CONFIG_LOCALVERSION"
+    sed -i 's/^CONFIG_LOCALVERSION=.*$/CONFIG_LOCALVERSION="-$OVERWRITE_CONFIG_LOCALVERSION"/' "$KERNEL_DIR/arch/$KERNEL_ARCH/configs/$KERNEL_CONF"
+  fi 
+
+  cd $KERNEL_DIR
+  echo ">>>>>> CONFIGURING"
+  make O=$OUT_DIR ARCH=$KERNEL_ARCH $KERNEL_CONF -j$(nproc --all)
+
+  if [ $? -ne 0 ]; then
+    echo "<<<< FAILED CONFIGURING"
+    exit
+  fi
+
+  # CC=clang
+
+  echo ">>>>>> MAKING"
+  make -j$(nproc --all) O=$OUT_DIR \
+                        $MAKE_ADDITIONAL \
+                        ARCH=$KERNEL_ARCH \
+                        CC="ccache clang" \
+                        CLANG_TRIPLE=aarch64-linux-gnu- \
+                        CROSS_COMPILE=aarch64-linux-android- \
+                        CROSS_COMPILE_ARM32=arm-linux-androideabi-
+  if [ $? -ne 0 ]; then
+    echo "<<<< FAILED MAKING"
+    exit
+  fi
+  cd ..
+}
+
+function build_zip(){
+  if [ -f "$WORKDIR/zip_templates/$ZIP_SCRIPT.sh" ]; then
+    echo "Launching $ZIP_SCRIPT zip script..."
+    chmod +x "$WORKDIR/zip_templates/$ZIP_SCRIPT.sh"
+    $WORKDIR/zip_templates/$ZIP_SCRIPT.sh $KERNEL_NAME $OUT_DIR $DIST_DIR $BRANCH $DATE $GCC_PROVIDER $CLANG_PROVIDER $CONFIG_FILE
+  fi
+}
+
+for BRANCH in $KERNEL_BRANCHES
+do
+   OUT_DIR=$BASE_OUT_DIR"_"$BRANCH
+   echo "Building $BRANCH in $OUT_DIR"
+   switch_branch $BRANCH
+   build_kernel
+   build_zip
+done
