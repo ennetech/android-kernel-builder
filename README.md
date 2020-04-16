@@ -30,6 +30,7 @@ This project started as a build script for exercising in android kernel developm
 ## Available GCC providers
 - GOOGLE
 - LOS
+- LINARO
 
 ## Available CLANG providers
 - GOOGLE

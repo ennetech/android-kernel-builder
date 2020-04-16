@@ -74,6 +74,10 @@ REPO_GCC_ARM32=""
 MAKE_ADDITIONAL=""
 NEEDS_PACKAGES=""
 
+CONF_CLANG_TRIPLE="aarch64-linux-gnu-"
+CONF_CROSS_COMPILE="aarch64-linux-android-"
+CONF_CROSS_COMPILE_ARM32="arm-linux-androideabi-"
+
 # Load from file
 if [ -f "kernel_templates/$1.config" ]; then
   echo "Loading env: $1"
@@ -145,6 +149,28 @@ case $GCC_PROVIDER in
     CLONE_GCC_ARM32_DIR="$WORKDIR/tools/gcc/los-arm32"
     GCC_ARM64_DIR="$WORKDIR/tools/gcc/los-arm64/bin"
     CLONE_GCC_ARM64_DIR="$WORKDIR/tools/gcc/los-arm64"
+    ;;
+  LINARO)
+    URL_ARM32="https://releases.linaro.org/components/toolchain/binaries/4.9-2016.02/arm-linux-gnueabi/gcc-linaro-4.9-2016.02-x86_64_arm-linux-gnueabi.tar.xz"
+    URL_ARM64="https://releases.linaro.org/components/toolchain/binaries/4.9-2016.02/aarch64-linux-gnu/gcc-linaro-4.9-2016.02-x86_64_aarch64-linux-gnu.tar.xz"
+    GCC_ARM32_DIR="$WORKDIR/tools/gcc/linaro-arm32/bin"
+    GCC_ARM64_DIR="$WORKDIR/tools/gcc/linaro-arm64/bin"
+    if [ ! -d "$GCC_ARM32_DIR" ]; then
+      check_install "wget xz-utils"
+      wget $URL_ARM32 -O "$WORKDIR/tools/gcc/gcc-linaro-4.9-2016.02-x86_64_arm-linux-gnueabi.tar.xz"
+      tar -C "$WORKDIR/tools/gcc" -vxf "$WORKDIR/tools/gcc/gcc-linaro-4.9-2016.02-x86_64_arm-linux-gnueabi.tar.xz"
+      rm "$WORKDIR/tools/gcc/gcc-linaro-4.9-2016.02-x86_64_arm-linux-gnueabi.tar.xz"
+      mv "$WORKDIR/tools/gcc/gcc-linaro-4.9-2016.02-x86_64_arm-linux-gnueabi" "$WORKDIR/tools/gcc/linaro-arm32"
+    fi
+    if [ ! -d "$GCC_ARM64_DIR" ]; then
+      check_install "wget xz-utils"
+      wget $URL_ARM64 -O "$WORKDIR/tools/gcc/gcc-linaro-4.9-2016.02-x86_64_aarch64-linux-gnu.tar.xz"
+      tar -C "$WORKDIR/tools/gcc" -vxf "$WORKDIR/tools/gcc/gcc-linaro-4.9-2016.02-x86_64_aarch64-linux-gnu.tar.xz"
+      rm "$WORKDIR/tools/gcc/gcc-linaro-4.9-2016.02-x86_64_aarch64-linux-gnu.tar.xz"
+      mv "$WORKDIR/tools/gcc/gcc-linaro-4.9-2016.02-x86_64_aarch64-linux-gnu" "$WORKDIR/tools/gcc/linaro-arm64"
+    fi
+    CONF_CROSS_COMPILE="aarch64-linux-gnu-"
+    CONF_CROSS_COMPILE_ARM32="arm-linux-gnueabi-"
     ;;
 esac
 
@@ -331,9 +357,9 @@ function build_kernel(){
                         $MAKE_ADDITIONAL \
                         ARCH=$KERNEL_ARCH \
                         CC="ccache clang" \
-                        CLANG_TRIPLE=aarch64-linux-gnu- \
-                        CROSS_COMPILE=aarch64-linux-android- \
-                        CROSS_COMPILE_ARM32=arm-linux-androideabi-
+                        CLANG_TRIPLE=$CONF_CLANG_TRIPLE \
+                        CROSS_COMPILE=$CONF_CROSS_COMPILE \
+                        CROSS_COMPILE_ARM32=$CONF_CROSS_COMPILE_ARM32
   if [ $? -ne 0 ]; then
     echo "<<<< FAILED MAKING"
     exit
