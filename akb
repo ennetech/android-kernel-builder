@@ -121,7 +121,7 @@ if [ ! -d "$KERNEL_DIR" ]; then
   BCOUNT="$(echo $KERNEL_BRANCHES | wc -w)"
   EX=""
   if [ "$BCOUNT" == "1" ]; then
-    EX="--depth 1"
+    EX="--depth 1 -b $KERNEL_BRANCHES"
     echo "Detected only one branch, let's shallow clone!"
   fi
   echo 
