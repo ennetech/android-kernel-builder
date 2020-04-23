@@ -203,6 +203,17 @@ fi
 
 # CLANG
 case $CLANG_PROVIDER in
+  CLANG-BUILT-LINUX)
+    CLANG_DIR="$WORKDIR/tools/clang/clang-built-linux/install/bin"
+    if [ ! -d "$WORKDIR/tools/clang/clang-built-linux" ]; then
+      git clone --depth 1 https://github.com/ClangBuiltLinux/tc-build.git "$WORKDIR/tools/clang/clang-built-linux"
+    fi
+    if [ ! -d "$CLANG_DIR" ]; then
+      echo "Installing deps to build clang-built-linux..."
+      check_install "bc bison ca-certificates ccache clang cmake curl file flex gcc g++ git libelf-dev libssl-dev make ninja-build python3 texinfo u-boot-tools zlib1g-dev lld"
+      $WORKDIR/tools/clang/clang-built-linux/build-llvm.py
+    fi
+    ;;
   PROTON-BUILD)
     CLANG_DIR="$WORKDIR/tools/clang/proton-build/install/bin"
     if [ ! -d "$WORKDIR/tools/clang/proton-build" ]; then
