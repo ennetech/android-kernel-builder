@@ -93,7 +93,7 @@ if [ "$NEEDS_PACKAGES" != "" ]; then
 fi 
 
 # Do not touch this variables if not needed
-KERNEL_DIR="$WORKDIR/kernel_$CONFIG_FILE"
+KERNEL_DIR="$WORKDIR/_kernel_$CONFIG_FILE"
 CCACHE_DIR="$WORKDIR/_ccache"
 BASE_OUT_DIR="$WORKDIR/_out_$CONFIG_FILE"
 DIST_DIR="$WORKDIR/dist"
