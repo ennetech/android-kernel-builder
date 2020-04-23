@@ -352,6 +352,21 @@ function switch_branch(){
       echo "<<<< FAILED PULL"
       exit
     fi
+
+    if [ "$PAUSE_AFTER_PULL" != "" ]; then
+      read -n1 -r -p "Pull complete, press space to continue..." key
+
+      if [ "$key" = '' ]; then
+          # Space pressed, do something
+          echo "ok!"
+      else
+          echo "exiting..."
+          exit
+      fi
+    fi
+
+    GIT_HASH=$(git rev-parse --short HEAD)
+
     cd ..
     update_date
 }
