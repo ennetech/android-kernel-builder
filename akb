@@ -88,6 +88,11 @@ else
   exit
 fi
 
+if [ -f "_env" ]; then
+  echo "Loading _env"
+  . _env
+fi
+
 if [ "$NEEDS_PACKAGES" != "" ]; then
   check_install "$NEEDS_PACKAGES"
 fi 
@@ -378,8 +383,14 @@ function build_kernel(){
   fi 
 
   # scripts/mkcompile_h
-  # export KBUILD_BUILD_USER="build_user"
-  # export KBUILD_BUILD_HOST="build_server"
+  if [ "$BUILD_USER" != "" ]; then
+    echo ">>>> BUILD_USER: $BUILD_USER"
+    export KBUILD_BUILD_USER="$BUILD_USER"
+  fi
+  if [ "$BUILD_HOST" != "" ]; then
+    echo ">>>> BUILD_HOST: $BUILD_HOST"
+    export KBUILD_BUILD_HOST="$BUILD_HOST"
+  fi
 
   cd $KERNEL_DIR
   echo ">>>>>> CONFIGURING"
