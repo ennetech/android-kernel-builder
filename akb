@@ -377,6 +377,10 @@ function build_kernel(){
     sed -i 's/^CONFIG_LOCALVERSION=.*$/CONFIG_LOCALVERSION="-$OVERWRITE_CONFIG_LOCALVERSION"/' "$KERNEL_DIR/arch/$KERNEL_ARCH/configs/$KERNEL_CONF"
   fi 
 
+  # scripts/mkcompile_h
+  # export KBUILD_BUILD_USER="build_user"
+  # export KBUILD_BUILD_HOST="build_server"
+
   cd $KERNEL_DIR
   echo ">>>>>> CONFIGURING"
   make O=$OUT_DIR ARCH=$KERNEL_ARCH $KERNEL_CONF -j$(nproc --all)
@@ -407,7 +411,7 @@ function build_zip(){
   if [ -f "$WORKDIR/zip_templates/$ZIP_SCRIPT.sh" ]; then
     echo "Launching $ZIP_SCRIPT zip script..."
     chmod +x "$WORKDIR/zip_templates/$ZIP_SCRIPT.sh"
-    $WORKDIR/zip_templates/$ZIP_SCRIPT.sh $KERNEL_NAME $OUT_DIR $DIST_DIR $BRANCH $DATE $GCC_PROVIDER $CLANG_PROVIDER $CONFIG_FILE
+    $WORKDIR/zip_templates/$ZIP_SCRIPT.sh $KERNEL_NAME $OUT_DIR $DIST_DIR $BRANCH $DATE $GCC_PROVIDER $CLANG_PROVIDER $CONFIG_FILE $GIT_HASH
   fi
 }
 

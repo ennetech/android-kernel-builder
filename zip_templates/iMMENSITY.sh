@@ -9,6 +9,7 @@ echo "DATE: $5"
 echo "GCC: $6"
 echo "CLANG: $7"
 echo "CONFIG: $8"
+echo "GIT HASH: $9"
 
 WORKDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 echo "WORKDIR: $WORKDIR"
@@ -34,7 +35,7 @@ echo "Using random folder name: $RANDOM_NAME"
 ZIP_SOURCE=$WORKDIR/$RANDOM_NAME
 mkdir -p $ZIP_SOURCE
 
-OUTNAME="$8-$NAME-$5.zip"
+OUTNAME="$8-$NAME-$5-$9.zip"
 echo "ZIP NAME: $OUTNAME"
 # Duplicate base template
 cp $WORKDIR/iMMENSITY-template.zip $WORKDIR/$OUTNAME
@@ -69,5 +70,6 @@ DATE: $5
 GCC: $6
 CLANG: $7
 CONFIG: $8
+GIT_HASH: $9
 EOF
 rm -r $ZIP_SOURCE
