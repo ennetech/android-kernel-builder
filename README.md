@@ -7,7 +7,7 @@ This project started as a build script for exercising in android kernel developm
 ```
 |-- _ccache  
 |-- _out_<<KERNEL_NAME>>_<<KERNEL_BRANCH>> << Every build will have it's separate out folder
-|-- kernel_<<CONFIG_NAME>>  << Every kernel will be cloned in a pattern like this
+|-- _kernel_<<CONFIG_NAME>>  << Every kernel will be cloned in a pattern like this
 |-- akb
 |-- dist             << Flashable zips will be put here
 |-- kernel_templates << Contains .config files for building specification
