@@ -222,9 +222,24 @@ case $CLANG_PROVIDER in
     if [ ! -d "$CLANG_DIR" ]; then
       cd "$WORKDIR/tools/clang/benzo-build"
       toolchain/llvm_benzo/build.py --no-lto
-      # toolchain/llvm_benzo/build.py (ThinLTO builds take a lot longer)
     fi
-    ;;  
+    ;;
+  BENZO-BUILD-LTO)
+    CLANG_DIR="$WORKDIR/tools/clang/benzo-build-lto/out/install/linux-x86/clang-benzo/bin"
+    if [ ! -d "$WORKDIR/tools/clang/benzo-build-lto" ]; then
+      check_repo
+      check_install "bc bison ca-certificates ccache clang cmake curl file flex gcc g++ git libelf-dev libssl-dev make ninja-build python3 texinfo u-boot-tools zlib1g-dev lld"
+      mkdir -p "$WORKDIR/tools/clang/benzo-build-lto"
+      cd "$WORKDIR/tools/clang/benzo-build-lto"
+      repo init -u https://github.com/benzoClang/manifest -b master
+      repo sync -j$(nproc --all) -f
+    fi
+    if [ ! -d "$CLANG_DIR" ]; then
+      cd "$WORKDIR/tools/clang/benzo-build-lto"
+      # (ThinLTO builds take a lot longer)
+      toolchain/llvm_benzo/build.py
+    fi
+    ;;
   PROTON-PREBUILT)
     CLANG_DIR="$WORKDIR/tools/clang/proton-prebuilt/bin"
     if [ ! -d "$CLANG_DIR" ]; then
