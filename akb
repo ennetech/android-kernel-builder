@@ -265,7 +265,13 @@ case $CLANG_PROVIDER in
     ;;  
   LOLZ)
     REPO_CLANG="https://github.com/Jprimero15/lolz_clang.git"
+    CLONE_CLANG_DIR="$WORKDIR/tools/clang/lolz"
     CLANG_DIR="$WORKDIR/tools/clang/lolz/bin"
+    ;;
+  AVALON)
+    REPO_CLANG="https://github.com/Haseo97/Avalon-Clang-11.0.1.git"
+    CLONE_CLANG_DIR="$WORKDIR/tools/clang/avalon"
+    CLANG_DIR="$WORKDIR/tools/clang/avalon/bin"
     ;;
   GOOGLE)
     REPO_CLANG="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86"
