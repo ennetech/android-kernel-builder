@@ -245,29 +245,34 @@ case $CLANG_PROVIDER in
       toolchain/llvm_benzo/build.py
     fi
     ;;
-  PROTON-PREBUILT)
-    CLANG_DIR="$WORKDIR/tools/clang/proton-prebuilt/bin"
+  PROTON-PREBUILT-TAR)
+    CLANG_DIR="$WORKDIR/tools/clang/proton-prebuilt-tar/bin"
     if [ ! -d "$CLANG_DIR" ]; then
       echo "Proton prebuilt needs configuration"
       check_install "wget tar zstd"
-      CLANG_ARCHIVE="$WORKDIR/tools/clang/proton-prebuilt/proton_clang-latest.tar.zst"
+      CLANG_ARCHIVE="$WORKDIR/tools/clang/proton-prebuilt-tar/proton_clang-latest.tar.zst"
       if [ ! -f "$CLANG_ARCHIVE" ]; then
-        mkdir -p "$WORKDIR/tools/clang/proton-prebuilt"
+        mkdir -p "$WORKDIR/tools/clang/proton-prebuilt-tar"
         wget https://kdrag0n.dev/files/redirector/proton_clang-latest.tar.zst -O "$CLANG_ARCHIVE"
       fi
       if [ ! -d "$CLANG_DIR" ]; then
-        FIRST_DIR=$(ls -d $WORKDIR/tools/clang/proton-prebuilt/*/ 2>/dev/null)
+        FIRST_DIR=$(ls -d $WORKDIR/tools/clang/proton-prebuilt-tar/*/ 2>/dev/null)
         if [ -z "$FIRST_DIR" ]; then
           echo "NO FIRST DIR, EXTRACT!"
-          tar -C "$WORKDIR/tools/clang/proton-prebuilt" -I zstd -xvf $CLANG_ARCHIVE
-          CLANG_DIR=$(ls -d $WORKDIR/tools/clang/proton-prebuilt/*/ 2>/dev/null)
+          tar -C "$WORKDIR/tools/clang/proton-prebuilt-tar" -I zstd -xvf $CLANG_ARCHIVE
+          CLANG_DIR=$(ls -d $WORKDIR/tools/clang/proton-prebuilt-tar/*/ 2>/dev/null)
           CLANG_DIR="$CLANG_DIR""bin"
         else 
           CLANG_DIR="$FIRST_DIR""bin"  
         fi
       fi
     fi
-    ;;  
+    ;;
+  PROTON-PREBUILT)
+    REPO_CLANG="https://github.com/kdrag0n/proton-clang.git"
+    CLONE_CLANG_DIR="$WORKDIR/tools/clang/proton-prebuilt"
+    CLANG_DIR="$WORKDIR/tools/clang/proton-prebuilt/bin"
+    ;;    
   LOLZ)
     REPO_CLANG="https://github.com/Jprimero15/lolz_clang.git"
     CLONE_CLANG_DIR="$WORKDIR/tools/clang/lolz"
