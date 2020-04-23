@@ -34,9 +34,13 @@ This project started as a build script for exercising in android kernel developm
 
 ## Available CLANG providers
 - GOOGLE
+- CLANG-BUILT-LINUX
 - BENZO-BUILD 
+- BENZO-BUILD-LTO
 - PROTON-BUILD
 - PROTON-PREBUILT
+- PROTON-PREBUILT-TAR
+- AVALON
 - LOLZ
 
 ## Example usage (for a kernel that already has a .config)
